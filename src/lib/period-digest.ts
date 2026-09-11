@@ -22,6 +22,7 @@ import {
 } from "./openai-response-runtime";
 import { readSyncCache, writeSyncCache } from "./sync-cache";
 import { syncHomeTimelineEffect, type HomeTimelineMode } from "./timeline-live";
+import { defaultDigestLiveSyncMode } from "./digest-live-mode";
 import type {
 	EmbeddedTweet,
 	ProfileRecord,
@@ -688,7 +689,7 @@ function refreshPeriodDigestInputsEffect(
 	const includeThreads = phase.threads ?? true;
 	const window = resolvePeriodDigestWindow(options);
 	const liveStartTime = floorIsoToHour(window.since);
-	const mode = options.liveSyncMode ?? "xurl";
+	const mode = options.liveSyncMode ?? defaultDigestLiveSyncMode();
 	const contextTweetBudget = Math.max(
 		20,
 		Math.trunc(options.maxTweets ?? DEFAULT_MAX_TWEETS),
@@ -722,7 +723,7 @@ function refreshPeriodDigestInputsEffect(
 				emitDigestStatus(
 					handlers,
 					"Fetching home timeline from X",
-					"Walking the selected time window with xurl.",
+					`Walking the selected time window with ${mode}.`,
 				),
 			);
 			const result = yield* syncHomeTimelineEffect({

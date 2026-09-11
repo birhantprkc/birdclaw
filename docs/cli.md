@@ -122,6 +122,7 @@ birdclaw debug transport
 - excludes DMs unless `--include-dms` is passed
 - supports `--refresh`, `--model`, `--language <locale-id>`, `--max-tweets`, and `--max-links`
 - reads the default report language from `BIRDCLAW_DIGEST_LANGUAGE`
+- reads the home-timeline transport default from `BIRDCLAW_DIGEST_LIVE_MODE` (`auto`, `bird`, or `xurl`); unset or invalid values keep `xurl`, and `--live-mode` overrides the environment
 
 ### `digest [period]`
 
@@ -129,6 +130,7 @@ birdclaw debug transport
 - accepts explicit `--since <iso>` and `--until <iso>` windows
 - caches the final structured result by local context hash, model, reasoning effort, service tier, and canonical report language
 - accepts the same language tag through `GET /api/period-digest?language=zh-CN`
+- accepts a home-timeline transport override through `GET /api/period-digest?liveSyncMode=bird`; mentions and mention threads still use xurl, and the Today web page remains local-only
 - `--json` suppresses token streaming and emits the final envelope
 
 ### `init`

@@ -3607,6 +3607,51 @@ describe("cli", () => {
 		consoleErrorMock.mockRestore();
 	});
 
+	it("defaults digest live mode from BIRDCLAW_DIGEST_LIVE_MODE", async () => {
+		const previous = process.env.BIRDCLAW_DIGEST_LIVE_MODE;
+		process.env.BIRDCLAW_DIGEST_LIVE_MODE = "bird";
+		try {
+			const { runCli } = await loadCli();
+			await runCli(["node", "birdclaw", "today", "--no-live-sync"]);
+			expect(streamPeriodDigestMock).toHaveBeenCalledWith(
+				expect.objectContaining({ liveSync: false, liveSyncMode: "bird" }),
+				expect.anything(),
+			);
+		} finally {
+			if (previous === undefined) {
+				delete process.env.BIRDCLAW_DIGEST_LIVE_MODE;
+			} else {
+				process.env.BIRDCLAW_DIGEST_LIVE_MODE = previous;
+			}
+		}
+	});
+
+	it("prefers explicit --live-mode over BIRDCLAW_DIGEST_LIVE_MODE", async () => {
+		const previous = process.env.BIRDCLAW_DIGEST_LIVE_MODE;
+		process.env.BIRDCLAW_DIGEST_LIVE_MODE = "bird";
+		try {
+			const { runCli } = await loadCli();
+			await runCli([
+				"node",
+				"birdclaw",
+				"today",
+				"--no-live-sync",
+				"--live-mode",
+				"xurl",
+			]);
+			expect(streamPeriodDigestMock).toHaveBeenCalledWith(
+				expect.objectContaining({ liveSync: false, liveSyncMode: "xurl" }),
+				expect.anything(),
+			);
+		} finally {
+			if (previous === undefined) {
+				delete process.env.BIRDCLAW_DIGEST_LIVE_MODE;
+			} else {
+				process.env.BIRDCLAW_DIGEST_LIVE_MODE = previous;
+			}
+		}
+	});
+
 	it("rejects invalid digest language tags", async () => {
 		const consoleErrorMock = vi
 			.spyOn(console, "error")
