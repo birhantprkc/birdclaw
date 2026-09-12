@@ -75,6 +75,48 @@ function getProfileByHandle(
 	return profile ?? fallbackProfileForHandle(normalized);
 }
 
+function preloadMentionProfiles(
+	db: Database,
+	cache: ProfileByHandleCache,
+	rows: Record<string, unknown>[],
+) {
+	const handles = new Set<string>();
+	for (const row of rows) {
+		for (const prefix of ["", "reply_", "quoted_"]) {
+			if (!row[`${prefix}id`]) continue;
+			const entities = parseJsonField<TweetEntities>(
+				row[`${prefix}entities_json`],
+				{},
+			);
+			for (const mention of entities.mentions ?? []) {
+				handles.add(profileHandleKey(mention.username));
+			}
+			for (const match of String(row[`${prefix}text`] ?? "").matchAll(
+				/(^|[^\w@])@([A-Za-z0-9_]{1,15})/g,
+			)) {
+				handles.add(profileHandleKey(match[2]!));
+			}
+		}
+	}
+	const missing = [...handles].filter((handle) => !cache.has(handle));
+	if (missing.length === 0) return;
+	// Keep the same first match as individual lookups when archived handles collide.
+	const profiles = db
+		.prepare(`
+		select id, handle, display_name, bio, followers_count, following_count,
+		  avatar_hue, avatar_url, location, url, verified_type, entities_json, created_at
+		from profiles
+		where rowid in (
+		  select (select rowid from profiles where lower(handle) = value limit 1)
+		  from json_each(?)
+		)
+	`)
+		.all(JSON.stringify(missing)) as Record<string, unknown>[];
+	for (const handle of missing) cache.set(handle, null);
+	for (const row of profiles)
+		cache.set(profileHandleKey(String(row.handle)), profileFromDbRow(row));
+}
+
 function spansOverlap(
 	leftStart: number,
 	leftEnd: number,
@@ -1075,6 +1117,7 @@ export function listTimelineItems(
 	const urlExpansionCache: UrlExpansionCache = new Map();
 	preloadUrlExpansions(db, urlExpansionCache, rows);
 	const profileByHandleCache: ProfileByHandleCache = new Map();
+	preloadMentionProfiles(db, profileByHandleCache, rows);
 	const items = rows.map((row) => {
 		const author = {
 			id: String(row.profile_id),
@@ -1400,6 +1443,7 @@ export function getTweetsByIds(
 		>[];
 		const byId = new Map(rows.map((row) => [String(row.id), row]));
 		preloadUrlExpansions(db, urlExpansionCache, rows);
+		preloadMentionProfiles(db, profileByHandleCache, rows);
 		for (const id of batch) {
 			const row = byId.get(id);
 			if (!row) continue;
