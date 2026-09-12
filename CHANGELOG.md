@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Defer loading the HTTP/MCP server until `serve` runs, reducing startup work for CLI help and local commands.
+
 - Rank DM search matches using narrow message identifiers before loading the three selected messages and their sender profiles.
 
 - Normalize each distinct link URL once per insight query and reuse the result across ranking and hydration.
