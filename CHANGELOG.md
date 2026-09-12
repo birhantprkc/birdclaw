@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Batch mention-profile enrichment across timeline pages and cited tweets while preserving inline profiles and missing-handle fallbacks.
+
 - Return standalone CLI version checks directly from package metadata without loading every command and its dependencies.
 
 - Reposition hover previews on layout/content changes instead of every frame, and keep them outside contained feed rows so they remain correctly positioned and unclipped.

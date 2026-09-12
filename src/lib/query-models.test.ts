@@ -829,6 +829,50 @@ describe("query models", () => {
 		}
 	});
 
+	it("batches case-insensitive mention hits and misses and refreshes between reads", () => {
+		setupTempHome();
+		const db = getNativeDb();
+		const stamp = "2026-01-01T00:00:00Z";
+		for (let i = 0; i < 40; i++) {
+			const id = `mention_batch_${i}`;
+			const text = `bulkmention @Missing${i} @sam`;
+			insertTestTweet(db, { id, text, createdAt: stamp });
+			db.prepare("insert into tweets_fts(tweet_id, text) values (?, ?)").run(
+				id,
+				text,
+			);
+			insertTestEdge(db, id, stamp);
+		}
+		const prepare = vi.spyOn(NativeSqliteDatabase.prototype, "prepare");
+		try {
+			const read = () =>
+				listTimelineItems({
+					resource: "home",
+					search: "bulkmention",
+					limit: 40,
+				});
+			const items = read();
+			expect(items).toHaveLength(40);
+			expect(items[0]?.entities.mentions?.[0]?.profile?.handle).toMatch(
+				/^missing/,
+			);
+			expect(
+				prepare.mock.calls.filter(
+					([sql]) =>
+						sql.includes("from profiles") && sql.includes("lower(handle)"),
+				),
+			).toHaveLength(1);
+			db.prepare(
+				"update profiles set display_name = 'Fresh Sam' where lower(handle) = 'sam'",
+			).run();
+			expect(read()[0]?.entities.mentions?.[1]?.profile?.displayName).toBe(
+				"Fresh Sam",
+			);
+		} finally {
+			prepare.mockRestore();
+		}
+	});
+
 	it("batches cited tweets without changing order, visibility, or collection state", () => {
 		setupTempHome();
 		const db = getNativeDb();
