@@ -2300,6 +2300,51 @@ describe("query models", () => {
 		expect(conversation?.truncated).toBe(true);
 	});
 
+	it("reads stored Inbox scores only for current candidates", () => {
+		setupTempHome();
+		const db = getNativeDb();
+		const original = listInboxItems();
+		const candidate = original.items[0]!;
+		const insert = db.prepare(
+			"insert or replace into ai_scores values (?, ?, 'test', 99, 'Stored score', 'Reason', '2026-01-01')",
+		);
+		db.transaction(() => {
+			for (let i = 0; i < 1000; i++) insert.run("mention", `unrelated_${i}`);
+			insert.run(candidate.entityKind, candidate.entityId);
+		})();
+		const nativePrepare = NativeSqliteDatabase.prototype.prepare;
+		let scoreRows = 0;
+		const prepare = vi
+			.spyOn(NativeSqliteDatabase.prototype, "prepare")
+			.mockImplementation(function (this: NativeSqliteDatabase, sql: string) {
+				const statement = nativePrepare.call(this, sql);
+				if (sql.includes("from ai_scores")) {
+					const all = statement.all.bind(statement);
+					statement.all = (...params: unknown[]) => {
+						const rows = all(...params);
+						scoreRows += rows.length;
+						return rows;
+					};
+				}
+				return statement;
+			});
+		try {
+			const inbox = listInboxItems();
+			expect(inbox.items[0]).toMatchObject({
+				entityId: candidate.entityId,
+				source: "openai",
+				score: 99,
+				summary: "Stored score",
+			});
+			expect(scoreRows).toBeLessThanOrEqual(original.items.length);
+			expect(inbox.items.map((item) => item.entityId).sort()).toEqual(
+				original.items.map((item) => item.entityId).sort(),
+			);
+		} finally {
+			prepare.mockRestore();
+		}
+	});
+
 	it("builds a mixed inbox with ranked mentions and dms", () => {
 		setupTempHome();
 

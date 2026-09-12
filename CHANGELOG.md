@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Limit Inbox score reads to the current candidate mentions and conversations instead of loading the entire scoring history.
+
 - Batch referenced-retweet hydration and enrichment per account, preserving collection state and missing/deleted-post fallbacks.
 
 - Batch mention-profile enrichment across timeline pages and cited tweets while preserving inline profiles and missing-handle fallbacks.
