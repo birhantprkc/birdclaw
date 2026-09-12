@@ -928,6 +928,55 @@ describe("query models", () => {
 		}
 	});
 
+	it("batches descendant URL and mention enrichment without changing thread limits", () => {
+		setupTempHome();
+		const db = getNativeDb();
+		const stamp = "2030-01-01T00:00:00Z";
+		insertTestTweet(db, { id: "batch_root", text: "Root", createdAt: stamp });
+		for (let i = 0; i < 79; i++) {
+			insertTestTweet(db, {
+				id: `batch_child_${i}`,
+				text: `Reply @missing${i} https://t.co/child${i}`,
+				createdAt: stamp,
+				replyToId: "batch_root",
+			});
+		}
+		const prepare = vi.spyOn(NativeSqliteDatabase.prototype, "prepare");
+		try {
+			const thread = getTweetConversation("batch_root", 80, db)!;
+			expect(thread.items).toHaveLength(80);
+			expect(thread.truncated).toBe(false);
+			const children = thread.items.filter((item) => item.id !== "batch_root");
+			expect(
+				children.every(
+					(item) =>
+						item.entities.mentions?.length === 1 &&
+						item.entities.urls?.length === 1,
+				),
+			).toBe(true);
+			expect(
+				prepare.mock.calls.filter(([sql]) =>
+					sql.includes("from url_expansions"),
+				),
+			).toHaveLength(1);
+			expect(
+				prepare.mock.calls.filter(
+					([sql]) =>
+						sql.includes("from profiles") && sql.includes("lower(handle)"),
+				),
+			).toHaveLength(1);
+			expect(getTweetConversation("batch_root", 10, db)).toMatchObject({
+				truncated: true,
+				items: expect.any(Array),
+			});
+			expect(getTweetConversation("batch_root", 10, db)?.items).toHaveLength(
+				10,
+			);
+		} finally {
+			prepare.mockRestore();
+		}
+	});
+
 	it("batches cited tweets without changing order, visibility, or collection state", () => {
 		setupTempHome();
 		const db = getNativeDb();
