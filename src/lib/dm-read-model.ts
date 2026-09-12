@@ -393,7 +393,7 @@ function mapDmMessageRow(row: Record<string, unknown>): DmMessageItem {
 	};
 }
 
-function selectDmMessageSql(where: string, orderBy: string) {
+function selectDmMessageSql(where: string, orderBy: string, join = "") {
 	return `
     select
       m.id,
@@ -414,6 +414,7 @@ function selectDmMessageSql(where: string, orderBy: string) {
       p.created_at as profile_created_at
     from dm_messages m
     join profiles p on p.id = m.sender_profile_id
+    ${join}
     ${where}
     ${orderBy}
   `;
@@ -436,24 +437,8 @@ function getDmSearchMatches({
 	const matchRows = db
 		.prepare(
 			`
-      with ranked_matches as (
-        select
-          m.id,
-          m.conversation_id,
-          m.text,
-          m.created_at,
-          m.direction,
-          m.is_replied,
-          m.media_count,
-          p.id as profile_id,
-          p.handle,
-          p.display_name,
-          p.bio,
-          p.followers_count,
-          p.following_count,
-          p.avatar_hue,
-          p.avatar_url,
-          p.created_at as profile_created_at,
+      with ranked_matches as materialized (
+        select m.id,
           row_number() over (
             partition by m.conversation_id
             order by m.created_at desc, m.id desc
@@ -464,10 +449,11 @@ function getDmSearchMatches({
         where dm_fts.text match ?
           and m.conversation_id in (${conversationPlaceholders})
       )
-      select *
-      from ranked_matches
-      where match_rank <= 3
-      order by created_at desc, id desc
+      ${selectDmMessageSql(
+				"where ranked_matches.match_rank <= 3",
+				"order by m.created_at desc, m.id desc",
+				"join ranked_matches on ranked_matches.id = m.id",
+			)}
       `,
 		)
 		.all(search, ...conversationIds) as Array<Record<string, unknown>>;

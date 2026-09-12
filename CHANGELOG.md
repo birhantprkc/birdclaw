@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Rank DM search matches using narrow message identifiers before loading the three selected messages and their sender profiles.
+
 - Normalize each distinct link URL once per insight query and reuse the result across ranking and hydration.
 
 - Batch URL and mention-profile enrichment for conversation descendants while retaining traversal limits and truncation reporting.
