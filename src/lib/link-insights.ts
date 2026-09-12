@@ -663,6 +663,14 @@ function selectHydrationCandidates(
 export function getLinkInsights(
 	query: LinkInsightQuery = {},
 ): LinkInsightResponse {
+	const normalizedUrls = new Map<string, NormalizedUrl | null>();
+	const normalize = (url: string) => {
+		const cached = normalizedUrls.get(url);
+		if (cached !== undefined) return cached;
+		const normalized = normalizeUrl(url);
+		normalizedUrls.set(url, normalized);
+		return normalized;
+	};
 	const kind = query.kind ?? "links";
 	const range = query.range ?? "week";
 	const sort = query.sort ?? "rank";
@@ -756,7 +764,7 @@ export function getLinkInsights(
 	const rankedGroups = new Map<string, RankedInsightGroup>();
 	let occurrences = 0;
 	for (const row of rankRows) {
-		const normalized = normalizeUrl(
+		const normalized = normalize(
 			row.final_url || row.expanded_url || row.short_url,
 		);
 		if (!normalized) continue;
@@ -946,7 +954,7 @@ export function getLinkInsights(
 		) as LinkInsightRow[];
 
 	for (const row of needsRankingPass ? [] : rows) {
-		const normalized = normalizeUrl(
+		const normalized = normalize(
 			row.final_url || row.expanded_url || row.short_url,
 		);
 		if (!normalized) continue;
@@ -963,7 +971,7 @@ export function getLinkInsights(
 	const groups = new Map<string, InsightGroup>();
 	for (const row of rows) {
 		const rawUrl = row.final_url || row.expanded_url || row.short_url;
-		const normalized = normalizeUrl(rawUrl);
+		const normalized = normalize(rawUrl);
 		if (!normalized) {
 			continue;
 		}

@@ -234,6 +234,45 @@ describe("link insights", () => {
 		rmSync(homeDir, { recursive: true, force: true });
 	});
 
+	it("normalizes repeated URLs once per read and observes later expansion changes", () => {
+		const db = insertAccountFixture();
+		const shortUrl = "https://t.co/repeated";
+		insertExpansion(db, {
+			shortUrl,
+			finalUrl: "https://example.com/shared?utm_source=test",
+		});
+		for (let i = 0; i < 20; i++) {
+			insertTweet(db, {
+				id: `repeated_${i}`,
+				authorProfileId: "profile_a",
+				text: "Shared link",
+				createdAt: localIso(),
+			});
+			insertOccurrence(db, {
+				sourceKind: "tweet",
+				sourceId: `repeated_${i}`,
+				shortUrl,
+				createdAt: localIso(),
+			});
+		}
+		const normalizations = vi.spyOn(URLSearchParams.prototype, "sort");
+		try {
+			const result = getLinkInsights({ range: "all" });
+			expect(result.items).toHaveLength(1);
+			expect(result.items[0]?.shareCount).toBe(20);
+			expect(normalizations).toHaveBeenCalledTimes(1);
+			db.prepare(
+				"update url_expansions set final_url = 'https://example.com/refreshed?utm_source=test' where short_url = ?",
+			).run(shortUrl);
+			expect(getLinkInsights({ range: "all" }).items[0]?.url).toBe(
+				"https://example.com/refreshed",
+			);
+			expect(normalizations).toHaveBeenCalledTimes(2);
+		} finally {
+			normalizations.mockRestore();
+		}
+	});
+
 	it("groups top links, strips shared URLs from comments, and splits videos", () => {
 		const db = insertAccountFixture();
 		insertTweet(db, {
