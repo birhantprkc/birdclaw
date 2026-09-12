@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Hydrate each DM sender once per thread instead of copying profile columns for every message, preserving complete history and independent message objects.
+
 - Limit Inbox score reads to the current candidate mentions and conversations instead of loading the entire scoring history.
 
 - Batch referenced-retweet hydration and enrichment per account, preserving collection state and missing/deleted-post fallbacks.
