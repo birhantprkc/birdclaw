@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Batch URL and mention-profile enrichment for conversation descendants while retaining traversal limits and truncation reporting.
+
 - Reuse up to 128 recently prepared SQLite statements per connection while keeping streaming iterators on independent cursors.
 
 - Hydrate each DM sender once per thread instead of copying profile columns for every message, preserving complete history and independent message objects.

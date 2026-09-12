@@ -1509,9 +1509,9 @@ export function getTweetsByIds(
 function listTweetDescendants(
 	db: Database,
 	urlExpansionCache: UrlExpansionCache,
+	profileByHandleCache: ProfileByHandleCache,
 	rootId: string,
 	limit: number,
-	resolveProfileByHandle?: (handle: string) => ProfileRecord,
 	accountId?: string,
 ) {
 	const visibleLimit = Number.isFinite(limit)
@@ -1629,8 +1629,12 @@ function listTweetDescendants(
 		) as Array<Record<string, unknown>>;
 
 	const visibleRows = rows.filter((row) => typeof row.id === "string");
-	const items = visibleRows
-		.slice(0, visibleLimit)
+	const selectedRows = visibleRows.slice(0, visibleLimit);
+	preloadUrlExpansions(db, urlExpansionCache, selectedRows);
+	preloadMentionProfiles(db, profileByHandleCache, selectedRows);
+	const resolveProfileByHandle = (handle: string) =>
+		getProfileByHandle(db, profileByHandleCache, handle);
+	const items = selectedRows
 		.map((row) =>
 			buildEmbeddedTweet(
 				db,
@@ -1750,9 +1754,9 @@ export function getTweetConversation(
 	const focusedDescendants = listTweetDescendants(
 		db,
 		urlExpansionCache,
+		profileByHandleCache,
 		anchor.id,
 		remainingAfterRequired,
-		resolveProfileByHandle,
 		scopedAccountId,
 	);
 	const focusedDescendantsDropped = appendConversationTweets(
@@ -1768,9 +1772,9 @@ export function getTweetConversation(
 		const ambientDescendants = listTweetDescendants(
 			db,
 			urlExpansionCache,
+			profileByHandleCache,
 			root.id,
 			limit,
-			resolveProfileByHandle,
 			scopedAccountId,
 		);
 		const ambientDescendantsDropped = appendConversationTweets(
