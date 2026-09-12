@@ -2300,6 +2300,35 @@ describe("query models", () => {
 		expect(conversation?.truncated).toBe(true);
 	});
 
+	it("keeps complete DM histories and independently mutable sender objects", () => {
+		setupTempHome();
+		const db = getNativeDb();
+		const baseline = getConversationThread("dm_001")!;
+		const insert = db.prepare(
+			"insert into dm_messages(id, conversation_id, sender_profile_id, text, created_at, direction, is_replied, media_count) values (?, 'dm_001', 'profile_me', 'Long thread', '2030-01-01', 'outbound', 0, 0)",
+		);
+		db.transaction(() => {
+			for (let i = 0; i < 1200; i++) insert.run(`long_dm_${i}`);
+		})();
+		const thread = getConversationThread("dm_001")!;
+		expect(thread.messages).toHaveLength(baseline.messages.length + 1200);
+		expect(thread.messages.slice(0, baseline.messages.length)).toEqual(
+			baseline.messages,
+		);
+		const first = thread.messages[baseline.messages.length]!;
+		const second = thread.messages[baseline.messages.length + 1]!;
+		expect(first.sender).toEqual(second.sender);
+		expect(first.sender).not.toBe(second.sender);
+		first.sender.displayName = "Changed locally";
+		expect(second.sender.displayName).not.toBe("Changed locally");
+		db.prepare(
+			"update profiles set display_name = 'Fresh sender' where id = 'profile_me'",
+		).run();
+		expect(
+			getConversationThread("dm_001")?.messages.at(-1)?.sender.displayName,
+		).toBe("Fresh sender");
+	});
+
 	it("reads stored Inbox scores only for current candidates", () => {
 		setupTempHome();
 		const db = getNativeDb();

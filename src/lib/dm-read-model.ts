@@ -320,57 +320,47 @@ export function getConversationThread(
 	}
 
 	const db = getReadDb();
-	const rows = db
-		.prepare(
-			`
-      select
-        m.id,
-        m.conversation_id,
-        m.text,
-        m.created_at,
-        m.direction,
-        m.is_replied,
-        m.media_count,
-        p.id as profile_id,
-        p.handle,
-        p.display_name,
-        p.bio,
-        p.followers_count,
-        p.following_count,
-        p.avatar_hue,
-        p.avatar_url,
-        p.created_at as profile_created_at
-      from dm_messages m
-      join profiles p on p.id = m.sender_profile_id
-      where m.conversation_id = ?
-      order by m.created_at asc
-      `,
-		)
-		.all(conversationId) as Array<Record<string, unknown>>;
-
-	return {
-		conversation,
-		messages: rows.map((row) => ({
-			id: String(row.id),
-			conversationId: String(row.conversation_id),
-			text: String(row.text),
-			createdAt: String(row.created_at),
-			direction: row.direction as DmMessageItem["direction"],
-			isReplied: Boolean(row.is_replied),
-			mediaCount: Number(row.media_count),
-			sender: profileFromDbRow({
-				id: row.profile_id,
-				handle: row.handle,
-				display_name: row.display_name,
-				bio: row.bio,
-				followers_count: row.followers_count,
-				following_count: row.following_count,
-				avatar_hue: row.avatar_hue,
-				avatar_url: row.avatar_url,
-				created_at: row.profile_created_at,
-			}),
-		})),
-	};
+	return db.readTransaction(() => {
+		const rows = db
+			.prepare(`
+			select m.id, m.conversation_id, m.text, m.created_at, m.direction,
+			  m.is_replied, m.media_count, m.sender_profile_id
+			from dm_messages m
+			join profiles p on p.id = m.sender_profile_id
+			where m.conversation_id = ?
+			order by m.created_at asc
+		`)
+			.all(conversationId) as Record<string, unknown>[];
+		const senderIds = [
+			...new Set(rows.map((row) => String(row.sender_profile_id))),
+		];
+		const senderRows =
+			senderIds.length === 0
+				? []
+				: (db
+						.prepare(`
+			select id, handle, display_name, bio, followers_count, following_count,
+			  avatar_hue, avatar_url, created_at
+			from profiles where id in (select value from json_each(?))
+		`)
+						.all(JSON.stringify(senderIds)) as Record<string, unknown>[]);
+		const senders = new Map(
+			senderRows.map((row) => [String(row.id), profileFromDbRow(row)]),
+		);
+		return {
+			conversation,
+			messages: rows.map((row) => ({
+				id: String(row.id),
+				conversationId: String(row.conversation_id),
+				text: String(row.text),
+				createdAt: String(row.created_at),
+				direction: row.direction as DmMessageItem["direction"],
+				isReplied: Boolean(row.is_replied),
+				mediaCount: Number(row.media_count),
+				sender: { ...senders.get(String(row.sender_profile_id))! },
+			})),
+		};
+	})();
 }
 
 function normalizeDmContext(value: number | undefined) {
