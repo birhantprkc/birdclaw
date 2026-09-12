@@ -19,6 +19,7 @@ type RunResult = {
 };
 
 export const SQLITE_BUSY_TIMEOUT_MS = 30_000;
+const STATEMENT_CACHE_LIMIT = 128;
 
 function bindArgs(parameters: unknown[]) {
 	if (parameters.length === 1 && Array.isArray(parameters[0])) {
@@ -57,6 +58,7 @@ class NativeSqliteStatement {
 	constructor(
 		private readonly statement: StatementSync,
 		private readonly sql: string,
+		private readonly prepareIterator: () => StatementSync,
 		private readonly onStatement?: (sql: string, durationMs: number) => void,
 	) {}
 
@@ -92,7 +94,8 @@ class NativeSqliteStatement {
 	}
 
 	iterate(...parameters: unknown[]): IterableIterator<unknown> {
-		const rows = this.statement.iterate(...bindArgs(parameters));
+		// Iterators own their native cursor so nested reads cannot reset it.
+		const rows = this.prepareIterator().iterate(...bindArgs(parameters));
 		const startedAt = performance.now();
 		const onStatement = this.onStatement;
 		const sql = this.sql;
@@ -112,6 +115,7 @@ export class NativeSqliteDatabase {
 	readonly writeIdentity: string | object;
 	private transactionDepth = 0;
 	private readonly db: DatabaseSync;
+	private readonly statements = new Map<string, StatementSync>();
 
 	constructor(
 		path: string,
@@ -128,6 +132,7 @@ export class NativeSqliteDatabase {
 		if (!this.db.isOpen) {
 			return;
 		}
+		this.statements.clear();
 		this.db.close();
 	}
 
@@ -147,9 +152,20 @@ export class NativeSqliteDatabase {
 	}
 
 	prepare(sql: string): NativeSqliteStatement {
+		let statement = this.statements.get(sql);
+		if (statement) {
+			this.statements.delete(sql);
+		} else {
+			statement = this.db.prepare(sql);
+			if (this.statements.size >= STATEMENT_CACHE_LIMIT) {
+				this.statements.delete(this.statements.keys().next().value!);
+			}
+		}
+		this.statements.set(sql, statement);
 		return new NativeSqliteStatement(
-			this.db.prepare(sql),
+			statement,
 			sql,
+			() => this.db.prepare(sql),
 			this.options.onStatement,
 		);
 	}
