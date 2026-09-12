@@ -428,6 +428,33 @@ describe("query models", () => {
 		);
 	});
 
+	it("keeps the latest three DM matches when ranking a large matching thread", () => {
+		setupTempHome();
+		const db = getNativeDb();
+		const insert = db.prepare(
+			"insert into dm_messages(id, conversation_id, sender_profile_id, text, created_at, direction, is_replied, media_count) values (?, 'dm_001', 'profile_me', 'rankneedle', '2030-01-01', 'outbound', 0, 0)",
+		);
+		db.transaction(() => {
+			for (let i = 0; i < 1000; i++) {
+				const id = `rank_${String(i).padStart(4, "0")}`;
+				insert.run(id);
+				db.prepare(
+					"insert into dm_fts(message_id, text) values (?, 'rankneedle')",
+				).run(id);
+			}
+		})();
+		const result = listDmConversations({ search: "rankneedle", context: 1 });
+		expect(result).toHaveLength(1);
+		expect(result[0]?.matches?.map((match) => match.message.id)).toEqual([
+			"rank_0999",
+			"rank_0998",
+			"rank_0997",
+		]);
+		expect(result[0]?.matches?.[0]?.before[0]?.id).toBe("rank_0998");
+		expect(result[0]?.matches?.[0]?.after).toEqual([]);
+		expect(result[0]?.matches?.[2]?.message.sender.id).toBe("profile_me");
+	});
+
 	it("returns nearby DM context when requested for search results", () => {
 		setupTempHome();
 		const db = getNativeDb();
