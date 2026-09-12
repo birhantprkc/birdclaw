@@ -420,8 +420,48 @@ function parseManualRetweet(text: string) {
 	};
 }
 
+type RetweetRows = Map<string, Map<string, Record<string, unknown>>>;
+
+function preloadRetweetedTweets(
+	db: Database,
+	rows: Record<string, unknown>[],
+): RetweetRows {
+	const idsByAccount = new Map<string, Set<string>>();
+	for (const row of rows) {
+		const id = getRetweetedTweetIdFromRaw(row.edge_raw_json);
+		if (!id) continue;
+		const account = String(row.account_id);
+		const ids = idsByAccount.get(account) ?? new Set<string>();
+		ids.add(id);
+		idsByAccount.set(account, ids);
+	}
+	const result: RetweetRows = new Map();
+	for (const [account, ids] of idsByAccount) {
+		const referenced = db
+			.prepare(`${conversationTweetSelect(
+				account,
+				"",
+				`from tweets t indexed by sqlite_autoindex_tweets_1
+		join profiles p on p.id = t.author_profile_id`,
+			)}
+		where t.id in (select value from json_each(?))
+		and t.deleted_at is null and t.superseded_at is null
+		`)
+			.all(account, account, JSON.stringify([...ids])) as Record<
+			string,
+			unknown
+		>[];
+		result.set(
+			account,
+			new Map(referenced.map((row) => [String(row.id), row])),
+		);
+	}
+	return result;
+}
+
 function buildRetweetedTweet(
 	db: Database,
+	retweetRows: RetweetRows,
 	urlExpansionCache: UrlExpansionCache,
 	row: Record<string, unknown>,
 	resolveProfileByHandle: (handle: string) => ProfileRecord,
@@ -429,17 +469,16 @@ function buildRetweetedTweet(
 	const retweetedId = getRetweetedTweetIdFromRaw(row.edge_raw_json);
 	const accountId = String(row.account_id);
 	if (retweetedId) {
-		// The visible retweet edge is the account-scoped evidence for its referenced
-		// tweet. Project this account's state without requiring a second membership row.
-		const tweet = getTweetById(
-			db,
-			urlExpansionCache,
-			retweetedId,
-			resolveProfileByHandle,
-			{ stateAccountId: accountId },
-		);
-		if (tweet) {
-			return tweet;
+		// The visible retweet edge supplies membership; project only its account's state.
+		const referenced = retweetRows.get(accountId)?.get(retweetedId);
+		if (referenced) {
+			return buildEmbeddedTweet(
+				db,
+				urlExpansionCache,
+				referenced,
+				"",
+				resolveProfileByHandle,
+			);
 		}
 	}
 
@@ -1114,10 +1153,15 @@ export function listTimelineItems(
 		}
 	}
 
+	const retweetRows = preloadRetweetedTweets(db, rows);
+	const enrichmentRows = [
+		...rows,
+		...[...retweetRows.values()].flatMap((byId) => [...byId.values()]),
+	];
 	const urlExpansionCache: UrlExpansionCache = new Map();
-	preloadUrlExpansions(db, urlExpansionCache, rows);
+	preloadUrlExpansions(db, urlExpansionCache, enrichmentRows);
 	const profileByHandleCache: ProfileByHandleCache = new Map();
-	preloadMentionProfiles(db, profileByHandleCache, rows);
+	preloadMentionProfiles(db, profileByHandleCache, enrichmentRows);
 	const items = rows.map((row) => {
 		const author = {
 			id: String(row.profile_id),
@@ -1211,6 +1255,7 @@ export function listTimelineItems(
 			),
 			retweetedTweet: buildRetweetedTweet(
 				db,
+				retweetRows,
 				urlExpansionCache,
 				row,
 				resolveProfileByHandle,

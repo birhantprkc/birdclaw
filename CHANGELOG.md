@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Batch referenced-retweet hydration and enrichment per account, preserving collection state and missing/deleted-post fallbacks.
+
 - Batch mention-profile enrichment across timeline pages and cited tweets while preserving inline profiles and missing-handle fallbacks.
 
 - Return standalone CLI version checks directly from package metadata without loading every command and its dependencies.

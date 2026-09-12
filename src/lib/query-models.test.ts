@@ -873,6 +873,61 @@ describe("query models", () => {
 		}
 	});
 
+	it("hydrates repeated referenced retweets once per account", () => {
+		setupTempHome();
+		const db = getNativeDb();
+		const stamp = "2026-01-01T00:00:00Z";
+		insertTestTweet(db, {
+			id: "shared_retweet",
+			text: "Original @sam",
+			createdAt: stamp,
+		});
+		for (let i = 0; i < 40; i++) {
+			const id = `retweet_batch_${i}`;
+			insertTestTweet(db, { id, text: "bulkretweet", createdAt: stamp });
+			db.prepare("insert into tweets_fts(tweet_id, text) values (?, ?)").run(
+				id,
+				"bulkretweet",
+			);
+			insertTestEdge(db, id, stamp);
+			db.prepare(
+				"update tweet_account_edges set raw_json = ? where tweet_id = ?",
+			).run(JSON.stringify({ retweeted_tweet_id: "shared_retweet" }), id);
+		}
+		const prepare = vi.spyOn(NativeSqliteDatabase.prototype, "prepare");
+		try {
+			const items = listTimelineItems({
+				resource: "home",
+				search: "bulkretweet",
+				limit: 40,
+			});
+			expect(items).toHaveLength(40);
+			expect(
+				items.every((item) => item.retweetedTweet?.text === "Original @sam"),
+			).toBe(true);
+			expect(
+				prepare.mock.calls.filter(
+					([sql]) =>
+						sql.includes(
+							"from tweets t indexed by sqlite_autoindex_tweets_1",
+						) && sql.includes("json_each"),
+				),
+			).toHaveLength(1);
+			db.prepare(
+				"update tweets set deleted_at = ? where id = 'shared_retweet'",
+			).run(stamp);
+			expect(
+				listTimelineItems({
+					resource: "home",
+					search: "bulkretweet",
+					limit: 40,
+				}).every((item) => item.retweetedTweet === null),
+			).toBe(true);
+		} finally {
+			prepare.mockRestore();
+		}
+	});
+
 	it("batches cited tweets without changing order, visibility, or collection state", () => {
 		setupTempHome();
 		const db = getNativeDb();
