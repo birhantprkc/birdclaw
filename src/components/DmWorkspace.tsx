@@ -1,6 +1,7 @@
 import { CheckCircle2, Circle } from "lucide-react";
 import { formatCompactNumber } from "#/lib/present";
 import type { DmConversationItem, DmMessageItem } from "#/lib/types";
+import { useDeploymentMode } from "#/lib/deployment-mode";
 import {
 	composerBarClass,
 	composerInputClass,
@@ -81,6 +82,7 @@ export function DmWorkspace({
 	onReplyDraftChange: (value: string) => void;
 	onReplySend: (conversationId: string) => void;
 }) {
+	const { readOnly } = useDeploymentMode();
 	const participant = selectedConversation?.participant ?? null;
 	const selectedStatus = selectedConversation
 		? selectedConversation.isMessageRequest
@@ -198,6 +200,7 @@ export function DmWorkspace({
 							</div>
 							<button
 								className={primaryButtonClass}
+								hidden={readOnly}
 								onClick={() => onReplySend(selectedConversation.id)}
 								type="button"
 							>
@@ -249,7 +252,7 @@ export function DmWorkspace({
 								<MessageBubble key={message.id} message={message} />
 							))}
 						</div>
-						<div className={dmComposerShellClass}>
+						<div hidden={readOnly} className={dmComposerShellClass}>
 							<textarea
 								className={composerInputClass}
 								onChange={(event) => onReplyDraftChange(event.target.value)}

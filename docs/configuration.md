@@ -104,6 +104,7 @@ See [Backup](backup.md). When `autoSync` is enabled, read commands pull + merge 
 | `BIRDCLAW_MCP_TOKEN`           | Dedicated 32+ byte bearer secret required by the read-only `/mcp` endpoint                                                                            |
 | `BIRDCLAW_MCP_PUBLIC_URL`      | Exact public MCP URL, including `/mcp`; enables strict Host/Origin checks but does not terminate TLS                                                   |
 | `BIRDCLAW_DISABLE_LIVE_WRITES` | Set to `1` to block any live mutation (used by tests and CI)                                                                                         |
+| `BIRDCLAW_DEPLOYMENT_READ_ONLY` | Set to `1` before starting an archive server to allow only cached reads, disable mutations and automatic sync, and use the existing database without initialization or migrations |
 | `BIRDCLAW_BACKUP_AUTO_SYNC`    | Set to `0` to disable auto-sync for one process                                                                                                      |
 | `NO_COLOR`                     | Disable ANSI color in human output                                                                                                                   |
 | `OPENAI_API_KEY`               | Enable inbox scoring and low-signal filtering                                                                                                        |
@@ -139,6 +140,37 @@ There is no single global transport order:
 For moderation, `auto` tries bird first and falls back to xurl. Persist that choice with `birdclaw auth use <auto|bird|xurl>`.
 
 ## Disabling live writes
+
+### Read-only archive deployments
+
+To serve an existing archive without changing it, set
+`BIRDCLAW_DEPLOYMENT_READ_ONLY=1` before starting the server:
+
+```bash
+BIRDCLAW_DEPLOYMENT_READ_ONLY=1 birdclaw serve
+```
+
+Initialize/import the database with the same Birdclaw version before starting
+this mode. The server requires an existing, current schema and never initializes,
+seeds, or migrates it. Database reads use strict query-only connections. Automatic
+backup updates, sync jobs, live transport subprocesses, configuration writes, and web mutation
+requests are disabled. Cached tweets, threads, DMs, saved posts, links, blocklists,
+and network maps remain readable. Missing avatar, link-preview, and geocoding
+cache entries are left missing instead of being fetched or saved.
+
+The status API includes `readOnly: true`, and the web app hides writing controls,
+automatic sync timers, and pages that require live fetching or generation. The
+existing read-only MCP endpoint remains available when separately configured.
+Without this environment variable, normal behavior is unchanged.
+
+This mode does not authenticate visitors, isolate accounts, or change the
+permissions of X credentials. Keep the existing web/MCP authentication configured.
+If the hosting environment also permits shell access or runs other processes,
+use appropriate operating-system isolation and read-scoped credentials there.
+An independent updater should prepare a new archive outside the read-only server
+and restart the server against the updated database.
+
+### Dry runs
 
 For dry runs, demos, or development against a fresh archive:
 

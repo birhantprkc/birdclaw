@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useDeploymentMode } from "#/lib/deployment-mode";
 import {
 	Globe2,
 	MapPin,
@@ -534,10 +535,15 @@ function ClusterPopup({
 }
 
 function ProfileRow({ feature }: { feature: MapFeature }) {
+	const { readOnly } = useDeploymentMode();
 	return (
 		<a
 			className="flex min-w-0 gap-3 border-b border-[var(--line)] px-4 py-3 transition-colors hover:bg-[var(--bg-hover)]"
-			href={`/profiles/${encodeURIComponent(feature.properties.handle)}`}
+			href={
+				readOnly
+					? undefined
+					: `/profiles/${encodeURIComponent(feature.properties.handle)}`
+			}
 		>
 			<Avatar feature={feature} size={40} className="ring-[var(--bg)]" />
 			<div className="min-w-0 flex-1">

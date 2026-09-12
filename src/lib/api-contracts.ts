@@ -257,6 +257,7 @@ const transportStatusSchema: z.ZodType<TransportStatus> = z.object({
 });
 
 export const queryEnvelopeSchema = z.object({
+	readOnly: z.boolean().optional(),
 	accounts: z.array(accountRecordSchema),
 	archives: z.array(archiveCandidateSchema),
 	transport: transportStatusSchema,

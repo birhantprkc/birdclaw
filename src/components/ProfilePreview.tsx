@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { useDeploymentMode } from "#/lib/deployment-mode";
 import { formatCompactNumber } from "#/lib/present";
 import {
 	collectTweetSegmentsForText,
@@ -76,6 +77,7 @@ export function ProfilePreview({
 	className?: string;
 }) {
 	const preview = useFloatingPreview();
+	const { readOnly } = useDeploymentMode();
 	useAvatarPreload(preview.referenceRef, profile.id, profile.avatarUrl);
 
 	return (
@@ -88,7 +90,12 @@ export function ProfilePreview({
 				aria-controls={preview.open ? preview.floatingId : undefined}
 				aria-expanded={preview.open}
 				className={profilePreviewTriggerClass}
-				href={`/profiles/${encodeURIComponent(profile.handle)}`}
+				href={
+					readOnly
+						? undefined
+						: `/profiles/${encodeURIComponent(profile.handle)}`
+				}
+				tabIndex={readOnly ? 0 : undefined}
 			>
 				{children}
 			</a>

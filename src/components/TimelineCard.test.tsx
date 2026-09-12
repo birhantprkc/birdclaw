@@ -113,6 +113,21 @@ const item = {
 };
 
 describe("TimelineCard", () => {
+	it("keeps cached tweet content without reply or analysis actions in read-only mode", () => {
+		renderWithQueryClient(
+			<ConversationSurfaceScope>
+				<TimelineCard item={item} onReply={vi.fn()} />
+			</ConversationSurfaceScope>,
+			{ readOnly: true },
+		);
+		expect(
+			screen.queryByRole("button", { name: "Reply" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("link", { name: /Analyse/ }),
+		).not.toBeInTheDocument();
+		expect(screen.getAllByText("Sam Altman").length).toBeGreaterThan(0);
+	});
 	afterEach(() => {
 		cleanup();
 		vi.unstubAllGlobals();

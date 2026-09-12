@@ -9,7 +9,10 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { pathToFileURL } from "node:url";
-import { LOCAL_WEB_PEER_HEADER } from "./http-effect";
+import {
+	LOCAL_WEB_PEER_HEADER,
+	readOnlyRequestErrorResponse,
+} from "./http-effect";
 import {
 	type BirdclawMcpRuntime,
 	handleBirdclawMcpExchange,
@@ -373,6 +376,15 @@ export async function startProductionServer({
 					return;
 				}
 
+				const readOnlyDenied = readOnlyRequestErrorResponse({
+					url: url.href,
+					method: request.method ?? "GET",
+				});
+				if (readOnlyDenied) {
+					request.resume();
+					await sendWebResponse(readOnlyDenied, response);
+					return;
+				}
 				if (await sendStaticFile(request, response, clientDir, url.pathname))
 					return;
 				await sendWebResponse(

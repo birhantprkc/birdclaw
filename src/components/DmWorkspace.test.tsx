@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DmWorkspace } from "./DmWorkspace";
+import { renderWithQueryClient } from "#/test/render";
 
 afterEach(() => {
 	cleanup();
@@ -29,6 +30,28 @@ const conversation = {
 };
 
 describe("DmWorkspace", () => {
+	it("reads conversations without reply controls in a read-only deployment", () => {
+		renderWithQueryClient(
+			<DmWorkspace
+				conversations={[conversation]}
+				selectedConversation={conversation}
+				selectedMessages={[]}
+				onSelectConversation={vi.fn()}
+				replyDraft="draft"
+				onReplyDraftChange={vi.fn()}
+				onReplySend={vi.fn()}
+			/>,
+			{ readOnly: true },
+		);
+		expect(screen.getAllByText("Sam Altman").length).toBeGreaterThan(0);
+		expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Reply" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Send reply" }),
+		).not.toBeInTheDocument();
+	});
 	it("renders selected conversation and sends reply", () => {
 		const onSelectConversation = vi.fn();
 		const onReplyDraftChange = vi.fn();

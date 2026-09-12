@@ -6,6 +6,11 @@ import {
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { AppNav } from "#/components/AppNav";
+import { READ_ONLY_ARCHIVE_PAGES } from "#/lib/api-enums";
+import {
+	DeploymentModeProvider,
+	useDeploymentMode,
+} from "#/lib/deployment-mode";
 import { BirdclawQueryProvider } from "#/lib/query-client";
 import { ThemeProvider, themeScript } from "#/lib/theme";
 import {
@@ -66,16 +71,39 @@ function RootDocument({ children }: { children: ReactNode }) {
 			<body className={bodyClass}>
 				<BirdclawQueryProvider>
 					<ThemeProvider>
-						<div className={siteShellClass}>
-							<AppNav compact={wideMode} />
-							<main className={wideMode ? mainColumnDmClass : mainColumnClass}>
-								{children}
-							</main>
-						</div>
+						<DeploymentModeProvider>
+							<div className={siteShellClass}>
+								<AppNav compact={wideMode} />
+								<main
+									className={wideMode ? mainColumnDmClass : mainColumnClass}
+								>
+									<ArchivePage pathname={pathname}>{children}</ArchivePage>
+								</main>
+							</div>
+						</DeploymentModeProvider>
 					</ThemeProvider>
 				</BirdclawQueryProvider>
 				<Scripts />
 			</body>
 		</html>
 	);
+}
+
+function ArchivePage({
+	pathname,
+	children,
+}: {
+	pathname: string;
+	children: ReactNode;
+}) {
+	const { readOnly } = useDeploymentMode();
+	if (readOnly && !READ_ONLY_ARCHIVE_PAGES.includes(pathname)) {
+		return (
+			<p className="p-6">
+				This page is unavailable in a read-only archive deployment.{" "}
+				<a href="/">Browse the archive.</a>
+			</p>
+		);
+	}
+	return children;
 }

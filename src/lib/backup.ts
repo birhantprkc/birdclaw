@@ -19,7 +19,11 @@ import {
 	type BackupJsonRecord as JsonRecord,
 	type BackupJsonValue as JsonValue,
 } from "./backup-table-codecs";
-import { getBirdclawConfig, getBirdclawPaths } from "./config";
+import {
+	getBirdclawConfig,
+	getBirdclawPaths,
+	isReadOnlyDeployment,
+} from "./config";
 import { getNativeDb, refreshReadDatabasePoolAfterBulkWrite } from "./db";
 import { databaseWriteEffect } from "./database-writer";
 import {
@@ -3861,6 +3865,13 @@ function runMaybeAutoUpdateBackupEffect(
 export function maybeAutoUpdateBackupEffect(
 	db?: Database,
 ): Effect.Effect<BackupAutoUpdateResult, never> {
+	if (isReadOnlyDeployment())
+		return Effect.succeed({
+			ok: true,
+			enabled: false,
+			skipped: true,
+			reason: "read-only archive deployment",
+		});
 	if (autoUpdateInFlight) {
 		return Effect.promise(() => autoUpdateInFlight!);
 	}
@@ -3885,6 +3896,7 @@ export function maybeAutoUpdateBackup(
 }
 
 export function requestBackupAutoUpdate(db?: Database) {
+	if (isReadOnlyDeployment()) return;
 	if (autoUpdateBackgroundScheduled || autoUpdateInFlight) return;
 	autoUpdateBackgroundScheduled = true;
 	const timer = setTimeout(() => {
@@ -3910,6 +3922,13 @@ export function requestBackupAutoUpdate(db?: Database) {
 export function maybeAutoSyncBackupEffect(
 	db?: Database,
 ): Effect.Effect<BackupAutoUpdateResult, never> {
+	if (isReadOnlyDeployment())
+		return Effect.succeed({
+			ok: true,
+			enabled: false,
+			skipped: true,
+			reason: "read-only archive deployment",
+		});
 	return Effect.gen(function* () {
 		if (process.env.BIRDCLAW_BACKUP_AUTO_SYNC === "0") {
 			return {

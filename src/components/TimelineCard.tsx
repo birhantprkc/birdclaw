@@ -21,6 +21,7 @@ import type {
 	TweetUrlEntity,
 } from "#/lib/types";
 import { useConversationSurface } from "#/lib/conversation-surface";
+import { useDeploymentMode } from "#/lib/deployment-mode";
 import {
 	cx,
 	embeddedCardClass,
@@ -288,8 +289,12 @@ export function TimelineCard({
 	onReply: (tweetId: string) => void;
 	showReplyControls?: boolean;
 }) {
+	const { readOnly } = useDeploymentMode();
 	const canReply =
-		showReplyControls && item.kind !== "like" && item.kind !== "bookmark";
+		!readOnly &&
+		showReplyControls &&
+		item.kind !== "like" &&
+		item.kind !== "bookmark";
 	const displayTweet = item.retweetedTweet ?? item;
 	const displayTweetId = displayTweet.id;
 	const interactionTweetId =
@@ -462,6 +467,7 @@ export function TimelineCard({
 							</button>
 						) : null}
 						<a
+							hidden={readOnly}
 							aria-label={`Analyse @${displayAuthor.handle}`}
 							className={feedActionButtonClass}
 							href={`/profiles/${encodeURIComponent(displayAuthor.handle)}`}

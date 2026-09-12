@@ -1,6 +1,16 @@
 # CHANGELOG
 
-## 0.12.5 - Unreleased
+## 0.12.5 - 2026-09-12
+
+### Highlights
+
+- Serve a prepared Birdclaw archive in an explicit, opt-in read-only deployment mode.
+
+### Changes
+
+- Add `BIRDCLAW_DEPLOYMENT_READ_ONLY=1` for cached archive deployments, using strict database readers and suppressing automatic backup synchronization and cache population.
+- Reject mutating HTTP operations, live-generation routes, and transport subprocesses while retaining cached archive and authenticated MCP reads.
+- Hide unavailable navigation, reply composers, and sync controls in read-only mode, including automatic sync timers, while preserving normal interactive behavior and recovery pages.
 
 ## 0.12.4 - 2026-09-11
 

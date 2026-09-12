@@ -3,7 +3,11 @@ import NativeSqliteDatabase, {
 	type Database,
 	SQLITE_BUSY_TIMEOUT_MS,
 } from "./sqlite";
-import { ensureBirdclawDirs, getBirdclawPaths } from "./config";
+import {
+	ensureBirdclawDirs,
+	getBirdclawPaths,
+	isReadOnlyDeployment,
+} from "./config";
 import {
 	getDatabaseSchemaVersion,
 	type DatabaseMigration,
@@ -1283,11 +1287,13 @@ function nextReadDb() {
 }
 
 export function getNativeDb(options: InitDatabaseOptions = {}) {
+	if (isReadOnlyDeployment()) return getStrictReadDb();
 	initDatabase(options);
 	return nativeDb as Database;
 }
 
 export function getReadDb(options: InitDatabaseOptions = {}) {
+	if (isReadOnlyDeployment()) return getStrictReadDb();
 	initDatabase(options);
 	if (readDbs.length === 0) {
 		const { dbPath } = getBirdclawPaths();
