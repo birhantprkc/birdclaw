@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Normalize each distinct link URL once per insight query and reuse the result across ranking and hydration.
+
 - Batch URL and mention-profile enrichment for conversation descendants while retaining traversal limits and truncation reporting.
 
 - Reuse up to 128 recently prepared SQLite statements per connection while keeping streaming iterators on independent cursors.
