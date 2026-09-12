@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Defer linked-account metadata lookup until link-search results are selected, preserving substring matching and account fallback precedence.
+
 - Defer loading the HTTP/MCP server until `serve` runs, reducing startup work for CLI help and local commands.
 
 - Rank DM search matches using narrow message identifiers before loading the three selected messages and their sender profiles.
