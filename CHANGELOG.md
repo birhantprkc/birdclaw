@@ -2,6 +2,8 @@
 
 ## 0.12.6 - Unreleased
 
+- Reuse read-only archive status counts until SQLite reports a data change, avoiding repeated full archive counts during navigation.
+
 - Reduce allocations when reading SQLite rows while preserving plain objects and Buffer-valued BLOB columns.
 
 - Restore network-map avatars in markers, clusters, popups, and the visible-people list when cached image bytes are missing, including read-only archives.
