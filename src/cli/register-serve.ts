@@ -1,5 +1,4 @@
 import { requestBackupAutoUpdate } from "#/lib/backup";
-import { runProductionServer } from "#/lib/production-server";
 import { printError, type CliCommandContext } from "./command-context";
 
 export function registerServeCommand(
@@ -29,6 +28,7 @@ export function registerServeCommand(
 			}
 			const port = parseNonNegativeIntegerOption(options.port, "--port");
 			if (port === undefined) return;
+			const { runProductionServer } = await import("#/lib/production-server");
 			await runProductionServer({
 				packageRoot,
 				host,
